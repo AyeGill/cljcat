@@ -1,14 +1,85 @@
 # cljcat
 
-A Clojure library designed to ... well, that part is up to you.
+A Clojure library for applied category theory. Inspired by [Catlab.jl](https://github.com/epatters/catlab).
+
+Similarly to Catlab, cljcat is not intending to be a theorem prover.
+Rather, the current idea is to use property-based testing to check invariants.
+(However, this idea is not implemented yet).
+
+## Overview
+
+Read the example code in `core.clj` to get an idea.
+
+The bulk of the code currently revolves around `deftheory`.
+This is a macro which produces a sort of bastardized semi-algebraic theory.
+A theory in this sense consists of sorts, operations, predicates, and equations (the equations currently don't matter).
+Each predicate has an associated "signature", stating a list of sorts for the variables.
+An operation has a more complicated signature, giving both a sort for each variable, as well as optional pre- and postconditions, expressed in terms of the predicates, the sorts, and arbitrary Clojure functions.
+
+For instance:
+```clojure
+(deftheory monoid
+    [element]
+    []
+    [e [] element]
+    [mult [a element b element] element]
+    [[a element b element c element] (= (mult a (mult b c) (mult (mult a b) c)))]
+    [[a element] (= (mult (e) a) (mult a (e)) a)])
+```
+Declares the theory of monoids, which has
+- A single sort, `element`
+- No predicates
+- A nullary operation `e` which gives an element, and a binary operation `mult`, which takes two elements and returns an element.
+- Satisfies associativity and unitality.
+
+Here is a monoid:
+```clojure
+(def zmonoid (reify monoid
+    (-element [this x] (integer? x))
+    (-e [this] 0)
+    (-mult [this x y] (+ x y))))
+```
+Now we can do `(e zmonoid) ;0` and `(mult zmonoid 10 20) ;30` and so on.
+What's up with the dashes? Deftheory generates a binding
+```clojure
+(defn mult [m a b]
+    {:pre [(element m a) (element m b)]
+     :post #(element m %)}
+    (-mult m a b))
+```
+Which includes the pre and postconditions we put on mult.
+It also generates a Clojure protocol, `monoid`, with methods `-element`, `-e` and `-mult`.
+
+Currently the equations are completely ignored - the current goal is to make them into a spec for use with property-based testing.
 
 ## Usage
 
-FIXME
+Currently unusable. See `core.clj` for examples.
+
+## Devnotes/Todo/Roadmap
+
+Theories/core:
+
+- [ ] Make testing equations work at a basic level
+- [ ] Generate free instances from equations using logic programming (?)
+- [ ] Generate spec for structure-preserving maps (e.g functors)
+- [ ] Add option to use custom equality relations for testing (e.g. extensional function equality)
+- [ ] Extending theories
+
+Quality of life:
+
+- [ ] Macros to automatically insert instances.
+
+Categories:
+
+- [ ] Pullbacks
+- [ ] Products
+- [ ] Monoidal categories
+  - [ ] Must include a way of making a category with products into a monoidal category.
 
 ## License
 
-Copyright © 2020 FIXME
+Copyright © 2020 Eigil Fjeldgren Rischel
 
 This program and the accompanying materials are made available under the
 terms of the Eclipse Public License 2.0 which is available at
